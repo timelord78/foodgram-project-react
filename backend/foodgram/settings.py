@@ -1,11 +1,13 @@
 import os
 from pathlib import Path
+from dotenv import load_dotenv, find_dotenv
 
+load_dotenv(find_dotenv())
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-SECRET_KEY = 'django-insecure-iq@l-cv%$r4#5%&hvvum5g-ysz9@7=$q0ljq^c(^znl(a!9&w&'
+SECRET_KEY = os.environ.get('SECRET_KEY')
+# SECRET_KEY = 'django-insecure-iq@l-cv%$r4#5%&hvvum5g-ysz9@7=$q0ljq^c(^znl(a!9&w&'
 
 DEBUG = True
 
@@ -97,7 +99,7 @@ MEDIA_URL = '/media/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-AUTH_USER_MODEL = 'users.MyUser'
+AUTH_USER_MODEL = 'users.CustomUser'
 
 DJOSER = {
     'LOGIN_FIELD': 'email',

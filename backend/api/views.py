@@ -10,7 +10,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 
 from recipes.models import (
     Tag, Ingredient, Recipe, Favorite, ShopingCart, Subscribe)
-from users.models import MyUser
+from users.models import CustomUser
 from .serializers import (
     RecipeWriteSerializer, TagSerializer,
     IngredientSerializer, RecipeReadSerializer)
@@ -42,7 +42,7 @@ class UserViewset(DjoserUserViewSet):
     )
     def subscriptions(self, request):
         user = request.user
-        queryset = MyUser.objects.filter(follower__following=user)
+        queryset = CustomUser.objects.filter(follower__following=user)
         page = self.paginate_queryset(queryset)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
@@ -70,14 +70,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filterset_class = RecipeFilter
     permission_classes = (IsAuthorOrReadOnly,)
     pagination_class = LimitOffsetPagination
-
-    def get_queryset(self):
-        qs = super().get_queryset()
-        if self.request.query_params.get('is_favorited'):
-            qs = qs.filter(favorite__user=self.request.user)
-        if self.request.query_params.get('is_in_shopping_cart'):
-            qs = qs.filter(cart__customer=self.request.user)
-        return qs
 
     def get_serializer_class(self):
         if self.request.method == 'GET':

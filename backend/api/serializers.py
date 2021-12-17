@@ -1,7 +1,7 @@
-from rest_framework import serializers
+from rest_framework import serializers, validators
 from django.shortcuts import get_object_or_404
 
-from users.models import MyUser
+from users.models import CustomUser
 from recipes.models import (
     Tag, Ingredient, Recipe, IngredientRecipe,
     Favorite, ShopingCart, Subscribe)
@@ -14,7 +14,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = (
             'email', 'id', 'username',
             'first_name', 'last_name', 'is_subscribed')
-        model = MyUser
+        model = CustomUser
 
     def get_is_subscribed(self, obj):
         request = self.context.get('request')
@@ -99,14 +99,10 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         model = Recipe
         fields = (
             'ingredients', 'tags', 'image', 'name', 'text', 'cooking_time')
-
-    def create(self, validated_data):
-        if 'tags' in validated_data:
-            tags = validated_data.pop('tags')
-        ingredients_data = validated_data.pop('related_ingredients')
-        recipe = Recipe.objects.create(**validated_data)
-        recipe.tags.add(*tags)
-        for ingredient_data in ingredients_data:
+    
+    @staticmethod
+    def parse_ingredients(recipe, data):
+        for ingredient_data in data:
             ingredient_current = get_object_or_404(
                 Ingredient, pk=ingredient_data['ingredient']['id'])
             IngredientRecipe.objects.create(
@@ -114,6 +110,14 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
                 amount=ingredient_data['amount'],
                 ingredient=ingredient_current
             )
+
+    def create(self, validated_data):
+        if 'tags' in validated_data:
+            tags = validated_data.pop('tags')
+        ingredients_data = validated_data.pop('related_ingredients')
+        recipe = Recipe.objects.create(**validated_data)
+        recipe.tags.add(*tags)
+        self.parse_ingredients(recipe, ingredients_data)
         return recipe
 
     def update(self, instance, validated_data):
@@ -123,13 +127,30 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             instance.tags.add(*tags)
         ingredients_data = validated_data.pop('related_ingredients')
         IngredientRecipe.objects.filter(recipe=instance).delete()
-        for ingredient_data in ingredients_data:
-            ingredient_current = get_object_or_404(
-                Ingredient, pk=ingredient_data['ingredient']['id'])
-            IngredientRecipe.objects.create(
-                recipe=instance,
-                amount=ingredient_data['amount'],
-                ingredient=ingredient_current
-            )
+        self.parse_ingredients(instance, ingredients_data)
         super().update(instance, validated_data)
         return instance
+
+    def validate(self, data):
+        if data['cooking_time'] < 0:
+            raise serializers.ValidationError(
+                'Укажите корректное время приготовления!')
+        ingredients = []
+        for ingredient in data['related_ingredients']:
+            if ingredient['amount'] < 1:
+                raise serializers.ValidationError(
+                    'Укажите корректное количество ингредиента!')
+            if ingredient['ingredient']['id'] not in ingredients:
+                ingredients.append(ingredient['ingredient']['id'])
+            else:
+                raise serializers.ValidationError(
+                    'Ингредиенты не должны повторяться!')
+        tags = []
+        for tag in data['tags']:
+            if tag not in tags:
+                tags.append(tag)
+            else:
+                raise serializers.ValidationError('Тэги не должны повторяться!')
+        return data
+
+        
