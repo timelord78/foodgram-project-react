@@ -16,6 +16,8 @@ class RecipeIngredientInline(admin.TabularInline):
 
 
 class RecipeAdmin(admin.ModelAdmin):
+    fields = (
+        'author', 'name', 'text', 'image', 'cooking_time', 'favorites_count',)
     list_display = ('name', 'author',)
     list_filter = ('name', 'author', 'tags')
     readonly_fields = ('favorites_count',)
@@ -25,9 +27,6 @@ class RecipeAdmin(admin.ModelAdmin):
 
     def favorites_count(self, obj):
         return Favorite.objects.filter(favorite=obj).count()
-
-    fields = (
-        'author', 'name', 'text', 'image', 'cooking_time', 'favorites_count',)
 
 
 admin.site.register(Ingredient, IngredientAdmin)

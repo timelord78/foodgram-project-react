@@ -7,7 +7,6 @@ from django.http import HttpResponse
 from djoser.views import UserViewSet as DjoserUserViewSet
 from django_filters.rest_framework import DjangoFilterBackend
 
-
 from recipes.models import (
     Tag, Ingredient, Recipe, Favorite, ShopingCart, Subscribe)
 from users.models import CustomUser

@@ -1,4 +1,4 @@
-from rest_framework import serializers, validators
+from rest_framework import serializers
 from django.shortcuts import get_object_or_404
 
 from users.models import CustomUser
@@ -99,7 +99,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         model = Recipe
         fields = (
             'ingredients', 'tags', 'image', 'name', 'text', 'cooking_time')
-    
+
     @staticmethod
     def parse_ingredients(recipe, data):
         for ingredient_data in data:
@@ -150,7 +150,6 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
             if tag not in tags:
                 tags.append(tag)
             else:
-                raise serializers.ValidationError('Тэги не должны повторяться!')
+                raise serializers.ValidationError(
+                    'Тэги не должны повторяться!')
         return data
-
-        
