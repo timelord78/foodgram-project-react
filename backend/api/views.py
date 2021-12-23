@@ -15,6 +15,7 @@ from .serializers import (
     IngredientSerializer, RecipeReadSerializer, SubscriptionsSerializer)
 from .permissions import IsAuthorOrReadOnly
 from .filters import RecipeFilter, IngredientFilter
+from .paginators import PageNumberPaginatorCustom
 
 
 class UserViewset(DjoserUserViewSet):
@@ -75,7 +76,15 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
     permission_classes = (IsAuthorOrReadOnly,)
-    pagination_classes = (LimitOffsetPagination,)
+    pagination_class = PageNumberPaginatorCustom
+
+    def get_queryset(self):
+        qs = Recipe.objects.all()
+        if self.request.query_params.get('is_favorited'):
+            qs = qs.filter(favorite__user=self.request.user)
+        if self.request.query_params.get('is_in_shopping_cart'):
+            qs = qs.filter(cart__customer=self.request.user)
+        return qs
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
