@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.shortcuts import get_object_or_404
+from drf_extra_fields.fields import Base64ImageField
 
 from users.models import CustomUser
 from recipes.models import (
@@ -35,7 +36,7 @@ class IngredientSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Ingredient
-        fields = ('name', 'measurement_unit')
+        fields = ('id', 'name', 'measurement_unit')
 
 
 class IngredientRecipeSerializer(serializers.HyperlinkedModelSerializer):
@@ -94,6 +95,7 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
         queryset=Tag.objects.all(), many=True)
     ingredients = IngredientRecipeSerializer(
         many=True, source='related_ingredients')
+    image = Base64ImageField()
 
     class Meta:
         model = Recipe
@@ -153,3 +155,21 @@ class RecipeWriteSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     'Тэги не должны повторяться!')
         return data
+
+
+class SubscriptionsSerializer(serializers.ModelSerializer):
+    is_subscribed = serializers.SerializerMethodField('get_is_subscribed')
+    recipes = RecipeReadSerializer(many=True)
+
+    class Meta:
+        fields = (
+            'email', 'id', 'username',
+            'first_name', 'last_name', 'is_subscribed', 'recipes')
+        model = CustomUser
+
+    def get_is_subscribed(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        return Subscribe.objects.filter(
+            following=request.user, follower=obj).exists()

@@ -1,6 +1,6 @@
-from rest_framework import status, viewsets
+from rest_framework import status, viewsets, filters
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.pagination import LimitOffsetPagination
 from django.http import HttpResponse
@@ -12,12 +12,13 @@ from recipes.models import (
 from users.models import CustomUser
 from .serializers import (
     RecipeWriteSerializer, TagSerializer,
-    IngredientSerializer, RecipeReadSerializer)
+    IngredientSerializer, RecipeReadSerializer, SubscriptionsSerializer)
 from .permissions import IsAuthorOrReadOnly
-from .filters import RecipeFilter
+from .filters import RecipeFilter, IngredientFilter
 
 
 class UserViewset(DjoserUserViewSet):
+    pagination_class = LimitOffsetPagination
 
     @action(
         detail=True, methods=['GET', 'DELETE'],
@@ -29,7 +30,8 @@ class UserViewset(DjoserUserViewSet):
             following=user, follower=obj).exists()
         if request.method == 'GET' and not is_subscribed:
             Subscribe.objects.create(following=user, follower=obj)
-            return Response(status=status.HTTP_201_CREATED)
+            serializer = self.get_serializer(obj)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         if request.method == 'DELETE' and is_subscribed:
             Subscribe.objects.filter(following=user, follower=obj).delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -37,16 +39,16 @@ class UserViewset(DjoserUserViewSet):
 
     @action(
         detail=False, methods=['GET'], permission_classes=[IsAuthenticated],
-        pagination_class=LimitOffsetPagination
+
     )
     def subscriptions(self, request):
         user = request.user
-        queryset = CustomUser.objects.filter(follower__following=user)
-        page = self.paginate_queryset(queryset)
+        follows = CustomUser.objects.filter(follower__following=user)
+        page = self.paginate_queryset(follows)
         if page is not None:
-            serializer = self.get_serializer(page, many=True)
+            serializer = SubscriptionsSerializer(page, many=True)
             return self.get_paginated_response(serializer.data)
-        serializer = self.get_serializer(queryset, many=True)
+        serializer = SubscriptionsSerializer(follows, many=True)
         return Response(serializer.data)
 
 
@@ -59,7 +61,12 @@ class TagViewSet(viewsets.ReadOnlyModelViewSet):
 class IngredientViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Ingredient.objects.all()
     serializer_class = IngredientSerializer
+    permission_classes = [AllowAny]
     pagination_class = None
+    filter_backends = (DjangoFilterBackend, filters.OrderingFilter, )
+    filterset_class = IngredientFilter
+    search_fields = ('^name',)
+    ordering_fields = ('^name',)
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -68,7 +75,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_class = RecipeFilter
     permission_classes = (IsAuthorOrReadOnly,)
-    pagination_class = LimitOffsetPagination
+    pagination_classes = (LimitOffsetPagination,)
 
     def get_serializer_class(self):
         if self.request.method == 'GET':
@@ -90,7 +97,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         favorite = Favorite.objects.filter(user=user, favorite=obj).exists()
         if request.method == 'GET' and not favorite:
             Favorite.objects.create(user=user, favorite=obj)
-            return Response(status=status.HTTP_201_CREATED)
+            serializer = self.get_serializer(obj)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         if request.method == 'DELETE' and favorite:
             Favorite.objects.filter(user=user, favorite=obj).delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
@@ -105,7 +113,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         in_cart = ShopingCart.objects.filter(customer=user, cart=obj).exists()
         if request.method == 'GET' and not in_cart:
             ShopingCart.objects.create(customer=user, cart=obj)
-            return Response(status=status.HTTP_201_CREATED)
+            serializer = self.get_serializer(obj)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
         if request.method == 'DELETE' and in_cart:
             ShopingCart.objects.filter(customer=user, cart=obj).delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
